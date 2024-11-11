@@ -1,27 +1,27 @@
 {
-  "name": "typescript-action",
-  "description": "GitHub Actions TypeScript template",
+  "name": "timeweb-firewall",
+  "description": "Add current runner IP to a whitelist of the Timeweb firewall",
   "version": "0.0.0",
-  "author": "",
+  "author": "Alexander Shabunevich ",
   "private": true,
-  "homepage": "https://github.com/actions/typescript-action",
+  "homepage": "https://github.com/beholdr/timeweb-firewall",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/actions/typescript-action.git"
+    "url": "git+https://github.com/beholdr/timeweb-firewall.git"
   },
   "bugs": {
-    "url": "https://github.com/actions/typescript-action/issues"
+    "url": "https://github.com/beholdr/timeweb-firewall/issues"
   },
   "keywords": [
     "actions",
-    "node",
-    "setup"
+    "timeweb",
+    "firewall"
   ],
   "exports": {
     ".": "./dist/index.js"
   },
   "engines": {
-    "node": ">=21"
+    "node": ">=20"
   },
   "scripts": {
     "bundle": "npm run format:write && npm run package",
@@ -67,7 +67,8 @@
     ]
   },
   "dependencies": {
-    "@actions/core": "^1.11.1"
+    "@actions/core": "^1.11.1",
+    "@actions/http-client": "^2.2.3"
   },
   "devDependencies": {
     "@github/local-action": "^2.1.3",

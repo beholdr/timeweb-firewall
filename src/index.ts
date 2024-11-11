@@ -1,7 +1,10 @@
-/**
- * The entrypoint for the action.
- */
-import { run } from './main'
+import { getState } from '@actions/core'
+import { run, cleanup } from './main'
 
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-run()
+if (getState('ruleId')) {
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  cleanup()
+} else {
+  // eslint-disable-next-line @typescript-eslint/no-floating-promises
+  run()
+}

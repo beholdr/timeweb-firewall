@@ -2446,7 +2446,7 @@ class HttpClient {
         if (this._keepAlive && useProxy) {
             agent = this._proxyAgent;
         }
-        if (this._keepAlive && !useProxy) {
+        if (!useProxy) {
             agent = this._agent;
         }
         // if agent is already assigned use that agent.
@@ -2478,15 +2478,11 @@ class HttpClient {
             agent = tunnelAgent(agentOptions);
             this._proxyAgent = agent;
         }
-        // if reusing agent across request and tunneling agent isn't assigned create a new agent
-        if (this._keepAlive && !agent) {
+        // if tunneling agent isn't assigned create a new agent
+        if (!agent) {
             const options = { keepAlive: this._keepAlive, maxSockets };
             agent = usingSsl ? new https.Agent(options) : new http.Agent(options);
             this._agent = agent;
-        }
-        // if not using private agent and tunnel agent isn't setup then use global agent
-        if (!agent) {
-            agent = usingSsl ? https.globalAgent : http.globalAgent;
         }
         if (usingSsl && this._ignoreSslError) {
             // we don't want to set NODE_TLS_REJECT_UNAUTHORIZED=0 since that will affect request for entire process
@@ -2509,7 +2505,7 @@ class HttpClient {
         }
         const usingSsl = parsedUrl.protocol === 'https:';
         proxyAgent = new undici_1.ProxyAgent(Object.assign({ uri: proxyUrl.href, pipelining: !this._keepAlive ? 0 : 1 }, ((proxyUrl.username || proxyUrl.password) && {
-            token: `${proxyUrl.username}:${proxyUrl.password}`
+            token: `Basic ${Buffer.from(`${proxyUrl.username}:${proxyUrl.password}`).toString('base64')}`
         })));
         this._proxyAgentDispatcher = proxyAgent;
         if (usingSsl && this._ignoreSslError) {
@@ -2623,11 +2619,11 @@ function getProxyUrl(reqUrl) {
     })();
     if (proxyVar) {
         try {
-            return new URL(proxyVar);
+            return new DecodedURL(proxyVar);
         }
         catch (_a) {
             if (!proxyVar.startsWith('http://') && !proxyVar.startsWith('https://'))
-                return new URL(`http://${proxyVar}`);
+                return new DecodedURL(`http://${proxyVar}`);
         }
     }
     else {
@@ -2685,6 +2681,19 @@ function isLoopbackAddress(host) {
         hostLower.startsWith('127.') ||
         hostLower.startsWith('[::1]') ||
         hostLower.startsWith('[0:0:0:0:0:0:0:1]'));
+}
+class DecodedURL extends URL {
+    constructor(url, base) {
+        super(url, base);
+        this._decodedUsername = decodeURIComponent(super.username);
+        this._decodedPassword = decodeURIComponent(super.password);
+    }
+    get username() {
+        return this._decodedUsername;
+    }
+    get password() {
+        return this._decodedPassword;
+    }
 }
 //# sourceMappingURL=proxy.js.map
 
@@ -25656,52 +25665,90 @@ var __importStar = (this && this.__importStar) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.run = run;
+exports.cleanup = cleanup;
 const core = __importStar(__nccwpck_require__(7484));
-const wait_1 = __nccwpck_require__(910);
-/**
- * The main function for the action.
- * @returns {Promise<void>} Resolves when the action is complete.
- */
+const http_client_1 = __nccwpck_require__(4844);
+const IP_API_HOST = 'https://api64.ipify.org';
+const TIMEWEB_API_HOST = 'https://api.timeweb.cloud';
 async function run() {
     try {
-        const ms = core.getInput('milliseconds');
-        // Debug logs are only output if the `ACTIONS_STEP_DEBUG` secret is true
-        core.debug(`Waiting ${ms} milliseconds ...`);
-        // Log the current timestamp, wait, then log the new timestamp
-        core.debug(new Date().toTimeString());
-        await (0, wait_1.wait)(parseInt(ms, 10));
-        core.debug(new Date().toTimeString());
-        // Set outputs for other workflow steps to use
-        core.setOutput('time', new Date().toTimeString());
+        const ip = await getRunnerIp();
+        const rule = await addFirewallRule(ip);
+        core.saveState('ruleId', rule);
+        core.info(`Timeweb firewall rule for ${ip} has been added!`);
     }
     catch (error) {
-        // Fail the workflow run if an error occurs
+        if (error instanceof http_client_1.HttpClientError &&
+            // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+            error.result?.error_code === 'already_exist') {
+            core.saveState('ruleId', 'SKIP');
+            core.notice(`Timeweb firewall rule already exist`);
+        }
+        else if (error instanceof Error) {
+            core.setFailed(error.message);
+        }
+    }
+}
+async function cleanup() {
+    try {
+        const rule = core.getState('ruleId');
+        if (rule === 'SKIP') {
+            core.saveState('ruleId', '');
+            return;
+        }
+        const result = await deleteFirewallRule(rule);
+        if (!result) {
+            throw new Error('Error while deleting a firewall rule');
+        }
+        core.saveState('ruleId', '');
+        core.info(`Timeweb firewall rule is deleted!`);
+    }
+    catch (error) {
         if (error instanceof Error)
             core.setFailed(error.message);
     }
 }
-
-
-/***/ }),
-
-/***/ 910:
-/***/ ((__unused_webpack_module, exports) => {
-
-"use strict";
-
-Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.wait = wait;
-/**
- * Wait for a number of milliseconds.
- * @param milliseconds The number of milliseconds to wait.
- * @returns {Promise<string>} Resolves with 'done!' after the wait is over.
- */
-async function wait(milliseconds) {
-    return new Promise(resolve => {
-        if (isNaN(milliseconds)) {
-            throw new Error('milliseconds not a number');
-        }
-        setTimeout(() => resolve('done!'), milliseconds);
+async function getRunnerIp() {
+    const http = buildHttpClient();
+    const response = await http.getJson(`${IP_API_HOST}?format=json`);
+    if (!response.result?.ip) {
+        throw new Error('Error while determining a runner IP');
+    }
+    return response.result.ip;
+}
+async function addFirewallRule(cidr) {
+    const firewall = core.getInput('firewall');
+    const token = core.getInput('token');
+    const port = core.getInput('port');
+    const protocol = core.getInput('protocol');
+    const payload = {
+        direction: 'ingress',
+        protocol,
+        port,
+        cidr
+    };
+    const http = buildHttpClient();
+    const url = `${TIMEWEB_API_HOST}/api/v1/firewall/groups/${firewall}/rules`;
+    const headers = { Authorization: `Bearer ${token}` };
+    const response = await http.postJson(url, payload, headers);
+    if (!response.result?.rule.id) {
+        throw new Error('Error while adding a firewall rule');
+    }
+    return response.result.rule.id;
+}
+async function deleteFirewallRule(rule) {
+    const firewall = core.getInput('firewall');
+    const token = core.getInput('token');
+    const http = buildHttpClient();
+    const url = `${TIMEWEB_API_HOST}/api/v1/firewall/groups/${firewall}/rules/${rule}`;
+    const headers = { Authorization: `Bearer ${token}` };
+    await http.del(url, headers);
+    return true;
+}
+function buildHttpClient() {
+    return new http_client_1.HttpClient('beholdr/timeweb-firewall', undefined, {
+        allowRetries: true,
+        maxRetries: 2
     });
 }
 
@@ -27618,12 +27665,16 @@ var __webpack_exports__ = {};
 var exports = __webpack_exports__;
 
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-/**
- * The entrypoint for the action.
- */
+const core_1 = __nccwpck_require__(7484);
 const main_1 = __nccwpck_require__(1730);
-// eslint-disable-next-line @typescript-eslint/no-floating-promises
-(0, main_1.run)();
+if ((0, core_1.getState)('ruleId')) {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    (0, main_1.cleanup)();
+}
+else {
+    // eslint-disable-next-line @typescript-eslint/no-floating-promises
+    (0, main_1.run)();
+}
 
 })();
 
