@@ -1,7 +1,7 @@
 {
   "name": "timeweb-firewall",
   "description": "Add current runner IP to a whitelist of the Timeweb firewall",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "author": "Alexander Shabunevich ",
   "private": true,
   "homepage": "https://github.com/beholdr/timeweb-firewall",
