@@ -23,7 +23,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: beholdr/timeweb-firewall@v0.1
+      - uses: beholdr/timeweb-firewall@v0.1.0
         with:
           firewall: <GUID-OF-THE-FIREWALL>
           token: ${{ secrets.TIMEWEB_FIREWALL_TOKEN }}
