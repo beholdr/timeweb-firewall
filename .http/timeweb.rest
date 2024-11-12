@@ -1,0 +1,39 @@
+@host=https://api.timeweb.cloud
+@token={{INPUT_TOKEN}}
+@firewall={{INPUT_FIREWALL}}
+
+###
+
+GET /api/v1/firewall/groups
+Authorization: Bearer {{token}}
+
+GET /api/v1/firewall/groups/{{firewall}}
+Authorization: Bearer {{token}}
+
+GET /api/v1/firewall/groups/{{firewall}}/rules
+Authorization: Bearer {{token}}
+
+POST /api/v1/firewall/groups/{{firewall}}/rules
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "direction": "ingress",
+  "protocol": "tcp",
+  "port": "22",
+  "cidr": "4.149.0.0/18"
+}
+
+POST /api/v1/firewall/groups/{{firewall}}/rules
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "direction": "ingress",
+  "protocol": "tcp",
+  "port": "22",
+  "cidr": "2a01:111:f403:f90c::/62"
+}
+
+DELETE /api/v1/firewall/groups/{{firewall}}/rules/12f55a4b-80e6-4310-b5d4-b5b8d4c93b9b
+Authorization: Bearer {{token}}
