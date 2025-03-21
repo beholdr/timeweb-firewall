@@ -1,11 +1,5 @@
 # Timeweb firewall
 
-[![GitHub Super-Linter](https://github.com/beholdr/timeweb-firewall/actions/workflows/linter.yml/badge.svg)](https://github.com/super-linter/super-linter)
-![CI](https://github.com/beholdr/timeweb-firewall/actions/workflows/ci.yml/badge.svg)
-[![Check dist/](https://github.com/beholdr/timeweb-firewall/actions/workflows/check-dist.yml/badge.svg)](https://github.com/beholdr/timeweb-firewall/actions/workflows/check-dist.yml)
-[![CodeQL](https://github.com/beholdr/timeweb-firewall/actions/workflows/codeql-analysis.yml/badge.svg)](https://github.com/beholdr/timeweb-firewall/actions/workflows/codeql-analysis.yml)
-[![Coverage](./badges/coverage.svg)](./badges/coverage.svg)
-
 Github action for temporarily whitelisting IP of the current runner in the
 [Timeweb firewall](https://timeweb.cloud).
 
